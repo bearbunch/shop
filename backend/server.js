@@ -1,45 +1,31 @@
-import { WebSocketServer } from "ws";
+const express = require("express");
+const http = require("http");
+const { WebSocketServer } = require("ws");
 
+const app = express();
 const PORT = process.env.PORT || 8080;
 
-// WSS listens on Render-assigned port
-const wss = new WebSocketServer({ port: PORT });
+app.get("/", (req, res) => res.send("Backend is awake!"));
 
-app.get("/", (req, res) => {
-  res.send("Backend is awake!");
-});
+const server = app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+
+// WebSocket
+const wss = new WebSocketServer({ server });
 
 wss.on("connection", ws => {
   ws.on("message", msg => {
-    // ping/pong keepalive
-    if (msg.toString() === "ping") {
-      ws.send("pong");
-      return;
-    }
+      if (msg.toString() === "ping") { ws.send("pong"); return; }
+          wss.clients.forEach(client => { if (client.readyState === 1) client.send(msg.toString()); });
+            });
+            });
 
-    // broadcast sales to all clients
-    wss.clients.forEach(client => {
-      if (client.readyState === 1) {
-        client.send(msg.toString());
-      }
-    });
-  });
-});
-
-console.log("WebSocket server running");
-
-import http from "http";
-
-const SELF_URL = process.env.SELF_URL || "http://shop-1b7l.onrender.com"; // replace with your Render URL in production
-
-setInterval(() => {
-  http.get(SELF_URL, res => {
-    console.log(`[Self-Ping] Status: ${res.statusCode}`);
-    // consume the data so connection closes properly
-    res.on("data", () => {});
-    res.on("end", () => {});
-  }).on("error", err => {
-    console.error(`[Self-Ping] Error: ${err.message}`);
-  });
-}, 30 * 1000); // every 30 seconds
-      
+            // === Self-ping every 30 seconds ===
+            const SELF_URL = process.env.SELF_URL || `http://localhost:${PORT}`;
+            setInterval(() => {
+              http.get(SELF_URL, res => {
+                  console.log(`[Self-Ping] Status: ${res.statusCode}`);
+                      res.on("data", () => {}); 
+                          res.on("end", () => {});
+                            }).on("error", err => console.error(`[Self-Ping] Error: ${err.message}`));
+                            }, 30 * 1000);
+                            
