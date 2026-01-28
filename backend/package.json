@@ -1,11 +1,21 @@
 {
-  "name": "shop-terminal-backend",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "ws": "^8.16.0"
-  }
-}
+    "name": "shop-terminal-backend",
+      "version": "1.0.0",
+        "description": "Backend for Shop Terminal POS with WebSocket and JSON storage",
+          "main": "server.js",
+            "type": "module",
+              "scripts": {
+                  "start": "node server.js"
+                    },
+                      "dependencies": {
+                          "express": "^4.18.2",
+                              "ws": "^8.16.0"
+                                },
+                                  "engines": {
+                                      "node": ">=18.0.0"
+                                        },
+                                          "keywords": ["pos", "shop", "websocket", "render"],
+                                            "author": "YourName",
+                                              "license": "MIT"
+                                              
+                                      }
