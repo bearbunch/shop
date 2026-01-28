@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shop Terminal</title>
 <style>
-  body { margin:0; font-family:system-ui,sans-serif; background:#0a0a0a; color:#fff; }
-  header { display:flex; justify-content:space-between; align-items:center; padding:12px; background:#111; border-bottom:1px solid #333; }
-  button { background:#222; color:#fff; border:1px solid #444; padding:10px; border-radius:6px; cursor:pointer; }
-  button:hover { background:#333; } 
-  button.active { background:#0f766e; }
-  main { display:grid; grid-template-columns:2fr 1fr; gap:10px; padding:10px; }
-  .items { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .item { height:80px; }
-  .cart { background:#111; padding:10px; display:flex; flex-direction:column; }
-  .cart-items { flex:1; overflow-y:auto; font-size:14px; }
-  .row { display:flex; justify-content:space-between; margin-bottom:6px; }
-  .total { font-size:18px; font-weight:bold; margin:10px 0; }
+body { margin:0; font-family:monospace,sans-serif; background:#0a0a0a; color:#fff; }
+header { display:flex; justify-content:space-between; align-items:center; padding:12px; background:#111; border-bottom:1px solid #333; }
+button { background:#222; color:#fff; border:1px solid #444; padding:10px; border-radius:6px; cursor:pointer; }
+button:hover { background:#333; } 
+button.active { background:#0f766e; }
+main { padding:10px; }
+.items { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:10px; }
+.item { height:80px; }
+.cart { background:#111; padding:10px; display:flex; flex-direction:column; margin-bottom:10px; }
+.cart-items { flex:1; overflow-y:auto; font-size:14px; }
+.row { display:flex; justify-content:space-between; margin-bottom:6px; }
+.total { font-size:18px; font-weight:bold; margin:10px 0; }
+#cli { display:none; background:#111; padding:10px; white-space:pre-wrap; height:70vh; overflow-y:auto; border:1px solid #333; }
 </style>
 </head>
 <body>
@@ -30,20 +31,24 @@
 </header>
 
 <main>
-  <section class="items" id="items"></section>
-
-  <aside class="cart">
-    <div class="cart-items" id="cart"></div>
-    <div class="total">Total: £<span id="total">0.00</span></div>
-    <button onclick="sendSale()">SEND SALE</button>
-    <button onclick="clearCart()">CLEAR</button>
-  </aside>
+  <div id="pos">
+    <section class="items" id="items"></section>
+    <aside class="cart">
+      <div class="cart-items" id="cart"></div>
+      <div class="total">Total: £<span id="total">0.00</span></div>
+      <button onclick="sendSale()">SEND SALE</button>
+      <button onclick="clearCart()">CLEAR</button>
+    </aside>
+  </div>
+  <div id="cli"></div>
 </main>
 
 <script>
-const WS_URL = "wss://shop-1b7l.onrender.com"; // <-- Replace with your Render backend
-let ws, pingInterval, receiveMode=false;
+// === CONFIG ===
+const WS_URL = "wss://shop-terminal-backend.onrender.com"; // replace with your Render backend
 
+// === STATE ===
+let ws, pingInterval, receiveMode=false;
 const items=[
   {id:"coffee",name:"Coffee",price:2.5},
   {id:"tea",name:"Tea",price:2.0},
@@ -52,10 +57,10 @@ const items=[
   {id:"fries",name:"Fries",price:2.8},
   {id:"sandwich",name:"Sandwich",price:4.5}
 ];
+const cart={}, itemsDiv=document.getElementById("items"), cartDiv=document.getElementById("cart"), totalSpan=document.getElementById("total"), status=document.getElementById("status"), receiveBtn=document.getElementById("receiveBtn"), posDiv=document.getElementById("pos"), cliDiv=document.getElementById("cli");
+let cliOrders=[];
 
-const cart={}, itemsDiv=document.getElementById("items"), cartDiv=document.getElementById("cart"), totalSpan=document.getElementById("total"), status=document.getElementById("status"), receiveBtn=document.getElementById("receiveBtn");
-
-// create item buttons
+// === RENDER POS ===
 items.forEach(item=>{
   const btn=document.createElement("button");
   btn.className="item";
@@ -68,16 +73,41 @@ function addItem(item){cart[item.id]??={...item,qty:0};cart[item.id].qty++;rende
 function renderCart(){cartDiv.innerHTML="";let total=0;Object.values(cart).forEach(i=>{total+=i.qty*i.price;cartDiv.innerHTML+=`<div class="row"><span>${i.qty}× ${i.name}</span><span>£${(i.qty*i.price).toFixed(2)}</span></div>`});totalSpan.textContent=total.toFixed(2);}
 function clearCart(){Object.keys(cart).forEach(k=>delete cart[k]);renderCart();}
 
+// === WEBSOCKET ===
 function connectWS(){
   ws=new WebSocket(WS_URL);
   ws.onopen=()=>{status.textContent="🟢";startPing();}
   ws.onclose=()=>{status.textContent="🔴";stopPing();setTimeout(connectWS,2000);}
-  ws.onmessage=e=>{if(e.data==="pong")return;if(!receiveMode)return;console.log("SALE RECEIVED:",JSON.parse(e.data));alert("SALE RECEIVED");}
+  ws.onmessage=e=>{
+    if(e.data==="pong") return;
+    const msg = JSON.parse(e.data);
+    if(receiveMode){
+      cliOrders.push(msg);
+      renderCLI();
+    }
+  };
 }
-function startPing(){pingInterval=setInterval(()=>{if(ws.readyState===1)ws.send("ping");},20000);}
+
+function startPing(){pingInterval=setInterval(()=>{if(ws.readyState===1) ws.send("ping");},20000);}
 function stopPing(){clearInterval(pingInterval);}
 function sendSale(){if(!ws||ws.readyState!==1)return;ws.send(JSON.stringify({type:"SALE",cart,total:totalSpan.textContent,time:new Date().toISOString()}));clearCart();}
-receiveBtn.onclick=()=>{receiveMode=!receiveMode;receiveBtn.classList.toggle("active",receiveMode);}
+
+// === RECEIVE BUTTON ===
+receiveBtn.onclick=()=>{
+  receiveMode=!receiveMode;
+  receiveBtn.classList.toggle("active",receiveMode);
+  posDiv.style.display=receiveMode?"none":"block";
+  cliDiv.style.display=receiveMode?"block":"none";
+  if(receiveMode) renderCLI();
+}
+
+// === RENDER CLI ===
+function renderCLI(){
+  cliDiv.textContent = cliOrders.map((o,i)=>`${i+1}: ${JSON.stringify(o,null,2)}`).join("\n\n");
+  cliDiv.scrollTop = cliDiv.scrollHeight;
+}
+
+// === INIT ===
 connectWS();
 </script>
 
