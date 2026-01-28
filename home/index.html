@@ -50,12 +50,11 @@ const WS_URL = "wss://shop-1b7l.onrender.com"; // replace with your Render backe
 // === STATE ===
 let ws, pingInterval, receiveMode=false;
 const items=[
-  {id:"coffee",name:"Coffee",price:2.5},
-  {id:"tea",name:"Tea",price:2.0},
-  {id:"cola",name:"Cola",price:1.8},
-  {id:"burger",name:"Burger",price:6.0},
-  {id:"fries",name:"Fries",price:2.8},
-  {id:"sandwich",name:"Sandwich",price:4.5}
+  {id:"coffee",name:"Coffee",price:0.0},
+  {id:"tea",name:"Tea",price:0.0},
+  {id:"cola",name:"Coke",price:0.0},
+  {id:"burger",name:"7-up",price:.00}
+  {id:"sandwich",name:"Sandwich",price:0.0}
 ];
 const cart={}, itemsDiv=document.getElementById("items"), cartDiv=document.getElementById("cart"), totalSpan=document.getElementById("total"), status=document.getElementById("status"), receiveBtn=document.getElementById("receiveBtn"), posDiv=document.getElementById("pos"), cliDiv=document.getElementById("cli");
 let cliOrders=[];
